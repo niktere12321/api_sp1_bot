@@ -65,7 +65,9 @@ def main():
             logger.debug('Отслеживание статуса запущено')
             homework_status = get_homeworks(current_timestamp)
             if homework_status.get('homeworks'):
-                send_message(parse_homework_status(homework_status.get('homeworks')[0]))
+                send_message(parse_homework_status(
+                    homework_status.get('homeworks')[0])
+                )
             current_timestamp = homework_status.get('current_date')
             logger.info('Бот отправил сообщение')
             time.sleep(5 * 60)  # Опрашивать раз в пять минут
