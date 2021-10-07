@@ -1,57 +1,87 @@
+import logging
 import os
+import time
+from logging.handlers import RotatingFileHandler
 
 import requests
+import telegram
 from dotenv import load_dotenv
-from telegram import ReplyKeyboardMarkup
-from telegram.ext import CommandHandler, Updater
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename='main.log',
+    format='%(asctime)s, %(levelname)s, %(name)s, %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = RotatingFileHandler(
+    'my_logger.log', maxBytes=50000000, backupCount=5
+)
+logger.addHandler(handler)
+
 
 load_dotenv()
 
-secret_token = os.getenv('TELEGRAM_TOKEN')
+PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'
+bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
-URL = 'https://api.thecatapi.com/v1/images/search'
+
+def parse_homework_status(homework):
+    homework_name = homework.get('homework_name')
+    homework_status = homework.get('status')
+    if homework_name is None:
+        return "Сервер Yandex API не отвечает!"
+    if homework_status == 'rejected':
+        verdict = 'К сожалению, в работе нашлись ошибки.'
+    else:
+        verdict = 'Ревьюеру всё понравилось, работа зачтена!'
+    return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
 
 
-def get_new_image():
+def get_homeworks(current_timestamp):
+    headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
+    if current_timestamp is None:
+        current_timestamp = int(time.time())
+    params = {'from_date': current_timestamp}
     try:
-        response = requests.get(URL)
-    except Exception as error:
-        print(error)
-        new_url = 'https://api.thedogapi.com/v1/images/search'
-        response = requests.get(new_url)
-    
-    response = response.json()
-    random_cat = response[0].get('url')
-    return random_cat
+        homework_statuses = requests.get(URL, params=params, headers=headers)
+        return homework_statuses.json()
+    except requests.exceptions.RequestException as e:
+        raise f'Ошибка при работе с API {e}'
+    except Exception as e:
+        logging.exception(f'error {e}')
+        return {}
 
 
-def new_cat(update, context):
-    chat = update.effective_chat
-    context.bot.send_photo(chat.id, get_new_image())
+def send_message(message):
+    return bot.send_message(chat_id=CHAT_ID, text=message)
 
-
-def wake_up(update, context):
-    chat = update.effective_chat
-    name = update.message.chat.first_name
-    button = ReplyKeyboardMarkup([['/newcat']], resize_keyboard=True)
-
-    context.bot.send_message(
-        chat_id=chat.id,
-        text='Привет, {}. Посмотри какого котика я тебе нашел'.format(name),
-        reply_markup=button
-    )
-
-    context.bot.send_photo(chat.id, get_new_image())
 
 def main():
-    updater = Updater(secret_token, use_context=True)
+    current_timestamp = int(time.time())  # Начальное значение timestamp
 
-    updater.dispatcher.add_handler(CommandHandler('start', wake_up))
-    updater.dispatcher.add_handler(CommandHandler('newcat', new_cat))
+    while True:
+        try:
+            logger.debug('Отслеживание статуса запущено')
+            homework_status = get_homeworks(current_timestamp)
+            if homework_status.get('homeworks'):
+                send_message(parse_homework_status(
+                    homework_status.get('homeworks')[0])
+                )
+            current_timestamp = homework_status.get('current_date')
+            logger.info('Бот отправил сообщение')
+            time.sleep(5 * 60)  # Опрашивать раз в пять минут
 
-    updater.start_polling()
-    updater.idle()
+        except Exception as e:
+            error_message = f'Бот упал с ошибкой: {e}'
+            logger.error(error_message)
+            bot.send_message(CHAT_ID, error_message)
+            time.sleep(10)
 
 
 if __name__ == '__main__':
-    main() 
+    main()
