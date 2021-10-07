@@ -1,83 +1,39 @@
-import logging
-import os
-import time
-from logging.handlers import RotatingFileHandler
+from telegram import ReplyKeyboardMarkup
+from telegram.ext import CommandHandler, Filters, MessageHandler, Updater
 
-import requests
-import telegram
-from dotenv import load_dotenv
+TELEGRAM_TOKEN = '2033287598:AAFBPr75b4abzYk0rMSH2Q4ph9mvMmC1U38'
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='main.log',
-    format='%(asctime)s, %(levelname)s, %(name)s, %(message)s'
-)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = RotatingFileHandler(
-    'my_logger.log', maxBytes=50000000, backupCount=5
-)
-logger.addHandler(handler)
+updater = Updater(token=TELEGRAM_TOKEN)
 
 
-load_dotenv()
-
-PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'
-bot = telegram.Bot(token=TELEGRAM_TOKEN)
+def say_hi(update, context):
+    chat = update.effective_chat
+    context.bot.send_message(chat_id=chat.id, text='Извени Макс нас всех')
 
 
-def parse_homework_status(homework):
-    homework_name = homework.get('homework_name')
-    homework_status = homework.get('status')
-    if homework_status == 'rejected':
-        verdict = 'К сожалению, в работе нашлись ошибки.'
-    else:
-        verdict = 'Ревьюеру всё понравилось, работа зачтена!'
-    return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
+def wake_up(update, context):
+    chat = update.effective_chat
+    name = update.message.chat.first_name
+    buttons = ReplyKeyboardMarkup([
+            ['Который час?', 'Определи мой ip'],
+            ['/random_digit']
+        ])
+    context.bot.send_message(
+        chat_id=chat.id,
+        text='Спасибо, что вы включили меня, {}!'.format(name),
+        reply_markup=buttons
+        )
 
 
-def get_homeworks(current_timestamp):
-    headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
-    if current_timestamp is None:
-        current_timestamp = int(time.time())
-    params = {'from_date': current_timestamp}
-    try:
-        homework_statuses = requests.get(URL, params=params, headers=headers)
-        return homework_statuses.json()
-    except Exception as e:
-        logging.exception(f'error {e}')
-        return {}
+def danil_pidr(update, context):
+    chat = update.effective_chat
+    context.bot.send_message(chat_id=chat.id, text='Данил пидр')
 
 
-def send_message(message):
-    return bot.send_message(chat_id=CHAT_ID, text=message)
+updater.dispatcher.add_handler(MessageHandler(Filters.text('Пидор'), danil_pidr))
 
+updater.dispatcher.add_handler(CommandHandler('start', wake_up))
 
-def main():
-    current_timestamp = int(time.time())  # Начальное значение timestamp
+updater.dispatcher.add_handler(MessageHandler(Filters.text, say_hi))
 
-    while True:
-        try:
-            logger.debug('Отслеживание статуса запущено')
-            homework_status = get_homeworks(current_timestamp)
-            if homework_status.get('homeworks'):
-                send_message(parse_homework_status(
-                    homework_status.get('homeworks')[0])
-                )
-            current_timestamp = homework_status.get('current_date')
-            logger.info('Бот отправил сообщение')
-            time.sleep(5 * 60)  # Опрашивать раз в пять минут
-
-        except Exception as e:
-            error_message = f'Бот упал с ошибкой: {e}'
-            logger.error(error_message)
-            bot.send_message(CHAT_ID, error_message)
-            time.sleep(10)
-
-
-if __name__ == '__main__':
-    main()
+updater.start_polling()
