@@ -74,13 +74,14 @@ def main():
             homework_status = get_homeworks(current_timestamp)
             if not homework_status.get('homeworks'):
                 send_message('Нету домашки')
+                time.sleep(30 * 60)
             else:
                 send_message(parse_homework_status(
                     homework_status.get('homeworks')[0])
                 )
-            current_timestamp = homework_status.get('current_date')
-            logger.info('Бот отправил сообщение')
-            time.sleep(5 * 60)
+                current_timestamp = homework_status.get('current_date')
+                logger.info('Бот отправил сообщение')
+                time.sleep(5 * 60)
 
         except Exception as e:
             error_message = f'Бот упал с ошибкой: {e}'
