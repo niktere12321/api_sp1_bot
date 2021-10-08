@@ -28,6 +28,11 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'
 bot = telegram.Bot(token=TELEGRAM_TOKEN)
+status_verdict = {
+    'rejected': 'К сожалению, в работе нашлись ошибки.',
+    'reviewing': 'Работа взята в ревью. Ждите вердикта!',
+    'approved': 'Ревьюеру всё понравилось, работа зачтена!',
+}
 
 
 def parse_homework_status(homework):
@@ -35,10 +40,10 @@ def parse_homework_status(homework):
     homework_status = homework.get('status')
     if homework_name is None:
         return "Сервер Yandex API не отвечает!"
-    if homework_status == 'rejected':
-        verdict = 'К сожалению, в работе нашлись ошибки.'
+    if homework_status in status_verdict:
+        verdict = status_verdict[homework_status]
     else:
-        verdict = 'Ревьюеру всё понравилось, работа зачтена!'
+        return logging.error('Неверный ответ сервера')
     return f'У вас проверили работу "{homework_name}"!\n\n{verdict}'
 
 
@@ -62,19 +67,20 @@ def send_message(message):
 
 
 def main():
-    current_timestamp = int(time.time())  # Начальное значение timestamp
-
+    current_timestamp = int(time.time())
     while True:
         try:
             logger.debug('Отслеживание статуса запущено')
             homework_status = get_homeworks(current_timestamp)
-            if homework_status.get('homeworks'):
+            if not homework_status.get('homeworks'):
+                send_message('Нету домашки')
+            else:
                 send_message(parse_homework_status(
-                    homework_status.get('homeworks')[0])
+                homework_status.get('homeworks')[0])
                 )
             current_timestamp = homework_status.get('current_date')
             logger.info('Бот отправил сообщение')
-            time.sleep(5 * 60)  # Опрашивать раз в пять минут
+            time.sleep(5 * 60)
 
         except Exception as e:
             error_message = f'Бот упал с ошибкой: {e}'
