@@ -76,7 +76,7 @@ def main():
                 send_message('Нету домашки')
             else:
                 send_message(parse_homework_status(
-                homework_status.get('homeworks')[0])
+                    homework_status.get('homeworks')[0])
                 )
             current_timestamp = homework_status.get('current_date')
             logger.info('Бот отправил сообщение')
