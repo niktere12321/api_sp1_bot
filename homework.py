@@ -74,7 +74,6 @@ def main():
             homework_status = get_homeworks(current_timestamp)
             if not homework_status.get('homeworks'):
                 send_message('Нету домашки')
-                time.sleep(30 * 60)
             else:
                 send_message(parse_homework_status(
                     homework_status.get('homeworks')[0])
