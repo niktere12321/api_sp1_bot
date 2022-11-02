@@ -6,7 +6,7 @@
 ***
 
 ### Технологии:
-- Python 3.8
+- Python 3.7
 - python-dotenv 0.19.0
 - python-telegram-bot 13.7
 ***
